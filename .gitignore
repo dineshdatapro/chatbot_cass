@@ -76,3 +76,18 @@ Desktop.ini
 *.tmp
 *.temp
 .cache/
+
+
+# Database
+agentic_rag.db
+backend/*.db
+
+# Archives
+*.7z
+*.zip
+
+# Notes
+cursorprompt.txt
+
+# Misc
+scp
