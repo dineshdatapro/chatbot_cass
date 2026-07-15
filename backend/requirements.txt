@@ -1,0 +1,43 @@
+# FastAPI backend (install RAG deps from ../agentic-rag-for-dummies/requirements.txt separately)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+pydantic-settings>=2.6.0
+email-validator>=2.2.0
+
+# Database
+sqlalchemy>=2.0.36
+psycopg2-binary>=2.9.10
+
+# Auth
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+
+# RAG stack (same as project — required for imports)
+python-dotenv>=1.0.0
+fastembed==0.8.0
+gradio==6.14.0
+ipykernel==7.2.0
+langchain-huggingface==1.2.2
+langchain-ollama==1.1.0
+langchain-qdrant==1.1.0
+langchain-text-splitters==1.1.2
+langfuse==4.6.1
+langgraph==1.2.0
+pymupdf4llm==1.27.2.3
+python-dotenv==1.2.2
+sentence-transformers==5.5.0
+tiktoken==0.13.0
+gradio
+dotenv
+langchain_core
+pymupdf
+pymupdf-layout
+tiktoken
+langchain_ollama
+langchain_huggingface
+langchain_qdrant
+langchain_text_splitters
+langgraph
+sentence-transformers
+fastembed

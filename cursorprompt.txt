@@ -1,0 +1,557 @@
+# Multi-Tenant Agentic RAG SaaS - Behaviour & Decision Flow Improvements
+
+This project is a **multi-tenant Agentic RAG SaaS platform** where every tenant uploads their own documents and gets an AI chatbot that can be embedded into their website.
+
+The overall architecture is already working correctly (FastAPI, LangGraph, Qdrant, Parent-Child Retrieval, Multi-Tenant Isolation, Authentication, Widget, etc.).
+
+**Do NOT redesign or rewrite the architecture.**
+
+Instead, review the entire reasoning flow and improve the chatbot's behaviour so it feels like a professional SaaS product similar to Chatbase, Intercom AI, Zendesk AI, or Microsoft Copilot Studio.
+
+---
+
+# Primary Goals
+
+Improve:
+
+* Planner behaviour
+* Query understanding
+* Query rewriting
+* Retrieval decision logic
+* Intent classification
+* Final answer generation
+* Fallback behaviour
+* Conversation experience
+
+Do NOT change:
+
+* FastAPI architecture
+* LangGraph workflow
+* Qdrant integration
+* Parent-child retrieval
+* Multi-tenant architecture
+* APIs
+* Authentication
+
+---
+
+# Current Problems
+
+## Problem 1
+
+Example:
+
+User:
+
+courses available
+
+Current:
+
+Please specify the context.
+
+Expected:
+
+Automatically infer that the user is asking about the current tenant's organization and retrieve the relevant information.
+
+Never ask unnecessary clarification questions.
+
+---
+
+## Problem 2
+
+Example:
+
+centers located in vizag
+
+Current:
+
+Please specify what type of centers.
+
+Expected:
+
+Search the tenant knowledge first.
+
+If the retrieved documents clearly indicate an organization located in Vizag, answer naturally.
+
+---
+
+## Problem 3
+
+Example:
+
+what is datapr
+
+Current:
+
+The term is unclear.
+
+Expected:
+
+Attempt lightweight typo correction.
+
+Normalize the query.
+
+Perform retrieval.
+
+Only reject the query if retrieval genuinely cannot identify the intent.
+
+---
+
+## Problem 4
+
+Example:
+
+What can you do?
+
+Current:
+
+"I couldn't find any information..."
+
+This is incorrect.
+
+Capability questions should NEVER enter the RAG pipeline.
+
+---
+
+## Problem 5
+
+During reasoning I can see that relevant information is retrieved, but the final response still becomes:
+
+"I couldn't find any information..."
+
+Investigate the complete LangGraph workflow.
+
+Check whether:
+
+* planner node
+* validator node
+* confidence check
+* answer generation node
+
+are discarding valid retrieved context before generating the final response.
+
+If retrieved context is sufficient, never replace it with a generic fallback.
+
+---
+
+# Multi-Tenant Behaviour
+
+Every tenant uploads different documents.
+
+Never hardcode company names.
+
+Never hardcode products.
+
+Never hardcode courses.
+
+Never hardcode organization details.
+
+Instead, dynamically infer everything from the tenant's uploaded knowledge.
+
+Examples:
+
+Tenant A
+
+ABC Hospital
+
+↓
+
+Answer like ABC Hospital assistant
+
+Tenant B
+
+XYZ College
+
+↓
+
+Answer like XYZ College assistant
+
+Tenant C
+
+DataPro
+
+↓
+
+Answer like DataPro assistant
+
+The chatbot must automatically adapt.
+
+---
+
+# Tenant Isolation
+
+Verify that every retrieval uses the tenant context.
+
+Ensure:
+
+* tenant_id filtering
+* tenant-specific vector collection or namespace
+* tenant-specific conversations
+* tenant-specific document lookup
+* tenant-specific caching
+
+Never leak information across tenants.
+
+---
+
+# Retrieval First
+
+The planner should always attempt retrieval before asking the user to clarify.
+
+Current:
+
+Question
+
+↓
+
+Clarify
+
+↓
+
+Retrieve
+
+Desired:
+
+Question
+
+↓
+
+Normalize
+
+↓
+
+Retrieve
+
+↓
+
+Evaluate
+
+↓
+
+Answer
+
+↓
+
+Clarify ONLY if necessary
+
+---
+
+# Intent Classification
+
+Implement an intent classification step before retrieval.
+
+Supported intents:
+
+Greeting
+
+Hello
+
+Hi
+
+Good morning
+
+Capability
+
+What can you do?
+
+How can you help?
+
+Identity
+
+Who are you?
+
+What's your name?
+
+Thanks
+
+Thank you
+
+Bye
+
+Knowledge Questions
+
+Everything related to the tenant's information.
+
+Only knowledge questions should go through RAG.
+
+Capability, greeting and small-talk should be answered directly without retrieval.
+
+---
+
+# Dynamic Context Inference
+
+Users often ask:
+
+courses
+
+fees
+
+contact
+
+phone
+
+email
+
+address
+
+branches
+
+location
+
+duration
+
+admission
+
+placements
+
+office
+
+CEO
+
+mission
+
+vision
+
+These should automatically be interpreted relative to the tenant's uploaded information.
+
+Do not ask unnecessary clarification questions.
+
+---
+
+# Typo Tolerance
+
+Before retrieval:
+
+* lowercase
+* trim whitespace
+* normalize punctuation
+* lightweight spelling correction
+* fuzzy matching
+
+Examples
+
+datapr
+
+↓
+
+DataPro
+
+salesforc
+
+↓
+
+Salesforce
+
+photoshp
+
+↓
+
+Photoshop
+
+Do not reject minor spelling mistakes.
+
+---
+
+# Clarification Policy
+
+Ask clarification ONLY when:
+
+The question itself is unclear.
+
+Examples:
+
+"It"
+
+"That"
+
+"This"
+
+"Tell me more"
+
+with no conversation context.
+
+Do NOT ask clarification because retrieval returned no results.
+
+---
+
+# Conversation Memory
+
+Support follow-up questions.
+
+Example:
+
+What courses are available?
+
+↓
+
+What is the duration?
+
+↓
+
+What are the fees?
+
+↓
+
+Do they provide placements?
+
+The chatbot should use previous conversation context before requesting clarification.
+
+---
+
+# Fallback Behaviour
+
+If relevant information exists:
+
+Answer naturally.
+
+If information does not exist:
+
+Do NOT hallucinate.
+
+Do NOT expose internal implementation.
+
+Never mention:
+
+* uploaded documents
+* knowledge base
+* RAG
+* embeddings
+* vector search
+* retrieval
+* chunks
+* Qdrant
+
+Instead respond naturally.
+
+Examples:
+
+"I'm sorry, but I don't have enough information to answer that accurately."
+
+"I can't confidently answer that at the moment."
+
+"I'm not able to verify that information."
+
+"I don't have reliable information about that."
+
+Choose the most natural response based on the conversation.
+
+---
+
+# Professional Assistant Behaviour
+
+The chatbot should feel like the organization's official AI assistant.
+
+Users should never realize they are interacting with a RAG pipeline.
+
+Avoid exposing implementation details.
+
+The assistant should be:
+
+* natural
+* conversational
+* concise
+* professional
+* context-aware
+* transparent when uncertain
+
+---
+
+# Final LangGraph Review
+
+Review the complete graph.
+
+Inspect:
+
+graph.py
+
+nodes.py
+
+edges.py
+
+graph_state.py
+
+prompts.py
+
+planner nodes
+
+retriever nodes
+
+validation nodes
+
+answer generation nodes
+
+Identify every place where:
+
+* unnecessary clarification happens
+* retrieved context is discarded
+* capability questions enter retrieval
+* fallback responses override valid answers
+* planner behaves like a generic assistant instead of a company assistant
+
+Improve the decision flow while preserving the existing architecture.
+
+---
+
+# Desired Decision Flow
+
+User Question
+
+↓
+
+Intent Classification
+
+↓
+
+Capability / Greeting?
+
+↓
+
+YES
+
+Answer directly.
+
+↓
+
+NO
+
+Normalize Query
+
+↓
+
+Typo Correction
+
+↓
+
+Tenant-aware Retrieval
+
+↓
+
+Relevant Context Found?
+
+↓
+
+YES
+
+Generate answer using retrieved context.
+
+↓
+
+NO
+
+Question understandable?
+
+↓
+
+YES
+
+Return a natural, professional uncertainty response without exposing RAG internals.
+
+↓
+
+NO
+
+Ask the user for clarification.
+
+---
+
+The final chatbot should behave like a premium SaaS AI assistant that understands the tenant's business, answers naturally using the tenant's knowledge, gracefully handles missing information, supports conversational interactions, and never exposes the internal RAG implementation.
