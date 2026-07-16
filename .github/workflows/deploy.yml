@@ -1,0 +1,61 @@
+name: Deploy AgenticRAG
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Server
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+
+          set -e
+
+          cd /opt/chatbot_cass/app
+
+          echo "=================================="
+          echo "Updating Repository"
+          echo "=================================="
+
+          git pull origin main
+
+          echo "=================================="
+          echo "Creating Backend .env"
+          echo "=================================="
+
+          cat > backend/.env << 'ENVEOF'
+          ${{ secrets.BACKEND_ENV }}
+          ENVEOF
+
+          echo "=================================="
+          echo "Creating Frontend .env"
+          echo "=================================="
+
+          mkdir -p frontend
+
+          cat > frontend/.env << 'ENVEOF'
+          ${{ secrets.FRONTEND_ENV }}
+          ENVEOF
+
+          chmod +x scripts/deploy.sh
+
+          ./scripts/deploy.sh
+
+          EOF
