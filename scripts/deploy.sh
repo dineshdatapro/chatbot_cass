@@ -53,11 +53,39 @@ sudo systemctl restart agenticrag-frontend
 #########################################
 
 echo ""
-echo "❤️ Health Checks"
+echo "❤️ Waiting for Backend..."
+
+for i in {1..30}; do
+    if curl -fs http://127.0.0.1:8000/health >/dev/null; then
+        echo "✅ Backend Ready"
+        break
+    fi
+
+    echo "Waiting... ($i/30)"
+    sleep 2
+done
+
+echo ""
+echo "❤️ Checking Backend"
 
 curl --fail http://127.0.0.1:8000/health
 
-curl --fail http://127.0.0.1:3000 > /dev/null
+echo ""
+echo "❤️ Checking Frontend"
+
+for i in {1..30}; do
+    if curl -fs http://127.0.0.1:3000 >/dev/null; then
+        echo "✅ Frontend Ready"
+        break
+    fi
+
+    echo "Waiting... ($i/30)"
+    sleep 2
+done
+
+curl --fail http://127.0.0.1:3000 >/dev/null
 
 echo ""
+echo "========================================"
 echo "✅ Deployment Successful!"
+echo "========================================"
