@@ -34,7 +34,7 @@ echo "⚛️ Frontend"
 
 cd frontend
 
-npm ci
+npm install
 
 npm run build
 
