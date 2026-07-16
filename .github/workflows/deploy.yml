@@ -34,7 +34,9 @@ jobs:
           echo "Updating Repository"
           echo "=================================="
 
-          git pull origin main
+          git fetch origin
+          git reset --hard origin/main
+          git clean -fd
 
           echo "=================================="
           echo "Creating Backend .env"

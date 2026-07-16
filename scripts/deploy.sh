@@ -10,9 +10,9 @@ APP_DIR="/opt/chatbot_cass/app"
 
 cd $APP_DIR
 
-echo ""
-echo "📥 Pulling latest code..."
-git pull origin main
+# echo ""
+# echo "📥 Pulling latest code..."
+# git pull origin main
 
 #########################################
 # Backend
