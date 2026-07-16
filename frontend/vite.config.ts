@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Self-hosted Node.js production: Nitro bundles a runnable HTTP server.
+  // Without this, Lovable's config skips nitro outside its sandbox and only
+  // emits dist/server/server.js (a fetch handler, not a standalone server).
+  nitro: {
+    preset: "node-server",
+  },
 });
