@@ -213,7 +213,12 @@
     messages.forEach(function (m) {
       var wrap = el("div", "arag-msg arag-msg-" + m.from);
       var bubble = el("div", "arag-bubble");
-      if (m.from === "bot" && m.text) {
+      if (m.from === "user") {
+        bubble.style.background =
+          "linear-gradient(135deg," + config.primaryColor + "," + config.secondaryColor + ")";
+        bubble.style.color = "#fff";
+        bubble.textContent = m.text;
+      } else if (m.from === "bot" && m.text) {
         bubble.innerHTML = renderMarkdownHtml(m.text);
       } else {
         bubble.textContent = m.text;
@@ -253,6 +258,8 @@
   }
 
   function injectStyles() {
+    var userBg =
+      "linear-gradient(135deg," + config.primaryColor + "," + config.secondaryColor + ")";
     var css =
       "#arag-root{position:fixed;z-index:99999;font-family:" +
       (config.fontFamily || "Inter") +
@@ -261,21 +268,23 @@
       "box-shadow:0 8px 24px rgba(0,0,0,.2);font-size:22px}" +
       "#arag-panel{width:360px;height:560px;display:flex;flex-direction:column;overflow:hidden;" +
       "box-shadow:0 12px 40px rgba(0,0,0,.18);border:1px solid rgba(0,0,0,.08)}" +
-      ".arag-header{padding:12px 16px;color:#fff;display:flex;align-items:center;gap:10px}" +
-      ".arag-header h4{margin:0;font-size:14px;font-weight:600}" +
-      ".arag-header small{opacity:.85;font-size:11px}" +
-      ".arag-msgs{flex:1;overflow-y:auto;padding:12px;background:#fafafb}" +
-      ".arag-msg{margin-bottom:10px;display:flex}" +
-      ".arag-msg-user{justify-content:flex-end}" +
-      ".arag-bubble{max-width:85%;padding:10px 14px;font-size:13px;line-height:1.45;border-radius:14px;white-space:pre-wrap}" +
-      ".arag-msg-user .arag-bubble{color:#fff}" +
-      ".arag-msg-bot .arag-bubble{background:#fff;border:1px solid rgba(0,0,0,.06);color:#111}" +
-      ".arag-sources{margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08);font-size:10px;opacity:.75}" +
-      ".arag-footer{padding:10px;border-top:1px solid rgba(0,0,0,.08);display:flex;gap:8px;background:#fff}" +
-      ".arag-footer input{flex:1;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px}" +
-      ".arag-footer button{width:36px;height:36px;border:none;border-radius:50%;color:#fff;cursor:pointer}" +
-      ".arag-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}" +
-      ".arag-suggestions button{font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid;cursor:pointer;background:transparent}";
+      "#arag-root .arag-header{padding:12px 16px;color:#fff;display:flex;align-items:center;gap:10px}" +
+      "#arag-root .arag-header h4{margin:0;font-size:14px;font-weight:600;color:#fff}" +
+      "#arag-root .arag-header small{opacity:.85;font-size:11px;color:#fff}" +
+      "#arag-root .arag-msgs{flex:1;overflow-y:auto;padding:12px;background:#fafafb}" +
+      "#arag-root .arag-msg{margin-bottom:10px;display:flex}" +
+      "#arag-root .arag-msg-user{justify-content:flex-end}" +
+      "#arag-root .arag-bubble{max-width:85%;padding:10px 14px;font-size:13px;line-height:1.45;border-radius:14px;white-space:pre-wrap}" +
+      "#arag-root .arag-msg-user .arag-bubble{background:" +
+      userBg +
+      ";color:#fff !important}" +
+      "#arag-root .arag-msg-bot .arag-bubble{background:#fff;border:1px solid rgba(0,0,0,.06);color:#111 !important}" +
+      "#arag-root .arag-sources{margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08);font-size:10px;opacity:.75}" +
+      "#arag-root .arag-footer{padding:10px;border-top:1px solid rgba(0,0,0,.08);display:flex;gap:8px;background:#fff}" +
+      "#arag-root .arag-footer input{flex:1;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;color:#111 !important;background:#fff !important}" +
+      "#arag-root .arag-footer button{width:36px;height:36px;border:none;border-radius:50%;color:#fff;cursor:pointer}" +
+      "#arag-root .arag-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}" +
+      "#arag-root .arag-suggestions button{font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid;cursor:pointer;background:transparent}";
     var style = document.createElement("style");
     style.textContent = css;
     document.head.appendChild(style);
@@ -319,6 +328,8 @@
     var footer = el("div", "arag-footer");
     inputEl = document.createElement("input");
     inputEl.placeholder = "Type your message…";
+    inputEl.style.color = config.dark ? "#f5f5f7" : "#111";
+    inputEl.style.background = config.dark ? "#1a1a25" : "#fff";
     var sendBtn = el("button", "");
     sendBtn.textContent = "➤";
     sendBtn.style.background =
