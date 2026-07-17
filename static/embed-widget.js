@@ -263,28 +263,35 @@
     var css =
       "#arag-root{position:fixed;z-index:99999;font-family:" +
       (config.fontFamily || "Inter") +
-      ",sans-serif}" +
-      "#arag-launcher{width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;color:#fff;" +
-      "box-shadow:0 8px 24px rgba(0,0,0,.2);font-size:22px}" +
-      "#arag-panel{width:360px;height:560px;display:flex;flex-direction:column;overflow:hidden;" +
-      "box-shadow:0 12px 40px rgba(0,0,0,.18);border:1px solid rgba(0,0,0,.08)}" +
-      "#arag-root .arag-header{padding:12px 16px;color:#fff;display:flex;align-items:center;gap:10px}" +
+      ",sans-serif;display:flex;flex-direction:column;align-items:flex-end;gap:12px;" +
+      "max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);pointer-events:none;" +
+      "bottom:max(12px,env(safe-area-inset-bottom,0px))}" +
+      "#arag-root > *{pointer-events:auto}" +
+      "#arag-launcher{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;color:#fff;" +
+      "box-shadow:0 8px 24px rgba(0,0,0,.2);font-size:22px;flex-shrink:0}" +
+      "#arag-panel{width:min(360px,calc(100vw - 24px));height:min(560px,calc(100dvh - 96px));" +
+      "max-height:min(560px,calc(100dvh - 96px - env(safe-area-inset-top,0px)));" +
+      "display:flex;flex-direction:column;overflow:hidden;" +
+      "box-shadow:0 12px 40px rgba(0,0,0,.18);border:1px solid rgba(0,0,0,.08);box-sizing:border-box}" +
+      "#arag-root .arag-header{padding:12px 16px;color:#fff;display:flex;align-items:center;gap:10px;flex-shrink:0}" +
       "#arag-root .arag-header h4{margin:0;font-size:14px;font-weight:600;color:#fff}" +
       "#arag-root .arag-header small{opacity:.85;font-size:11px;color:#fff}" +
-      "#arag-root .arag-msgs{flex:1;overflow-y:auto;padding:12px;background:#fafafb}" +
+      "#arag-root .arag-msgs{flex:1;min-height:0;overflow-y:auto;padding:12px;background:#fafafb;-webkit-overflow-scrolling:touch}" +
       "#arag-root .arag-msg{margin-bottom:10px;display:flex}" +
       "#arag-root .arag-msg-user{justify-content:flex-end}" +
-      "#arag-root .arag-bubble{max-width:85%;padding:10px 14px;font-size:13px;line-height:1.45;border-radius:14px;white-space:pre-wrap}" +
+      "#arag-root .arag-bubble{max-width:85%;padding:10px 14px;font-size:13px;line-height:1.45;border-radius:14px;white-space:pre-wrap;word-break:break-word}" +
       "#arag-root .arag-msg-user .arag-bubble{background:" +
       userBg +
       ";color:#fff !important}" +
       "#arag-root .arag-msg-bot .arag-bubble{background:#fff;border:1px solid rgba(0,0,0,.06);color:#111 !important}" +
       "#arag-root .arag-sources{margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08);font-size:10px;opacity:.75}" +
-      "#arag-root .arag-footer{padding:10px;border-top:1px solid rgba(0,0,0,.08);display:flex;gap:8px;background:#fff}" +
-      "#arag-root .arag-footer input{flex:1;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;color:#111 !important;background:#fff !important}" +
-      "#arag-root .arag-footer button{width:36px;height:36px;border:none;border-radius:50%;color:#fff;cursor:pointer}" +
-      "#arag-root .arag-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}" +
-      "#arag-root .arag-suggestions button{font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid;cursor:pointer;background:transparent}";
+      "#arag-root .arag-footer{padding:10px;border-top:1px solid rgba(0,0,0,.08);display:flex;gap:8px;background:#fff;flex-shrink:0}" +
+      "#arag-root .arag-footer input{flex:1;min-width:0;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;color:#111 !important;background:#fff !important}" +
+      "#arag-root .arag-footer button{width:36px;height:36px;min-width:36px;border:none;border-radius:50%;color:#fff;cursor:pointer;flex-shrink:0}" +
+      "#arag-root .arag-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px;flex-shrink:0}" +
+      "#arag-root .arag-suggestions button{font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid;cursor:pointer;background:transparent}" +
+      "@media (max-width:480px){#arag-panel{width:calc(100vw - 24px);height:min(520px,calc(100dvh - 88px));max-height:calc(100dvh - 88px - env(safe-area-inset-top,0px))}}" +
+      "@media (max-height:640px){#arag-panel{height:calc(100dvh - 88px);max-height:calc(100dvh - 88px - env(safe-area-inset-top,0px))}}";
     var style = document.createElement("style");
     style.textContent = css;
     document.head.appendChild(style);
@@ -294,8 +301,9 @@
     injectStyles();
     root = el("div", "");
     root.id = "arag-root";
-    root.style[config.position === "bottom-left" ? "left" : "right"] = "24px";
-    root.style.bottom = "24px";
+    var side = config.position === "bottom-left" ? "left" : "right";
+    root.style[side] = "max(12px, env(safe-area-inset-" + (side === "left" ? "left" : "right") + ", 0px))";
+    root.style.alignItems = config.position === "bottom-left" ? "flex-start" : "flex-end";
 
     panel = el("div", "");
     panel.id = "arag-panel";
@@ -353,8 +361,6 @@
     launcher.textContent = "💬";
     launcher.style.background =
       "linear-gradient(135deg," + config.primaryColor + "," + config.secondaryColor + ")";
-    launcher.style.marginTop = "12px";
-    launcher.style.float = config.position === "bottom-left" ? "left" : "right";
     launcher.onclick = function () {
       open = !open;
       panel.style.display = open ? "flex" : "none";
