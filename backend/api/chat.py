@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from backend.api.auth_context import AuthContext, get_auth_context
 from backend.database.session import get_db
@@ -16,7 +17,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 @router.post("", response_model=None, include_in_schema=True)
 async def chat(
     body: ChatRequest,
-    db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
     if not is_rag_ready():
@@ -26,8 +26,10 @@ async def chat(
         )
 
     if body.stream:
+        # Sync generator → Starlette runs it in a threadpool so multiple
+        # embed/chat clients can progress in parallel without queueing.
         return StreamingResponse(
-            chat_service.chat_stream_sse(db, auth.user, body.message, body.session_id),
+            chat_service.chat_stream_sse(auth.user.id, body.message, body.session_id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -37,7 +39,9 @@ async def chat(
         )
 
     try:
-        return chat_service.chat_sync(db, auth.user, body.message, body.session_id)
+        return await run_in_threadpool(
+            chat_service.chat_sync, auth.user.id, body.message, body.session_id
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

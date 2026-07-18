@@ -3,7 +3,7 @@
 import json
 import re
 import uuid
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import Generator
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
@@ -24,8 +24,8 @@ from backend.schemas.chat import (
     ChatSessionSummary,
     StoredChatMessage,
 )
-from backend.rag.tenant_context import load_tenant_allowed_sources, set_tenant_allowed_sources
-from backend.services.rag_service import get_chat_interface, get_rag_lock, get_rag_system, is_rag_ready
+from backend.rag.tenant_context import bind_tenant_for_thread, load_tenant_allowed_sources
+from backend.services.rag_service import get_chat_interface, get_rag_system, is_rag_ready
 
 _FILE_NAME_RE = re.compile(r"File Name:\s*([^\n]+)", re.IGNORECASE)
 _SOURCES_SECTION_RE = re.compile(r"\*\*Sources:\*\*\s*\n(.*?)(?:\n\n|\Z)", re.IGNORECASE | re.DOTALL)
@@ -210,27 +210,30 @@ def _run_chat_stream(
         yield [ChatMessage(role="assistant", content="RAG system is not initialized.")]
         return
 
-    rag = get_rag_system()
     chat = get_chat_interface()
-    lock = get_rag_lock()
 
     if db is not None and user is not None:
         # Always set a set (possibly empty). Empty = tenant has no docs → deny all retrieval.
-        set_tenant_allowed_sources(load_tenant_allowed_sources(db, user.tenant_id))
+        allowed = load_tenant_allowed_sources(db, user.tenant_id)
     else:
-        set_tenant_allowed_sources(set())
+        allowed = set()
 
+    bind_tenant_for_thread(thread_id, allowed)
     try:
-        with lock:
-            previous_thread = rag.thread_id
-            try:
-                rag.thread_id = thread_id
-                for chunk in chat.chat(message, history=[]):
-                    yield _normalize_messages(chunk)
-            finally:
-                rag.thread_id = previous_thread
+        # No global lock: thread_id is passed per request so chats run in parallel.
+        for chunk in chat.chat(message, history=[], thread_id=thread_id):
+            yield _normalize_messages(chunk)
     finally:
-        set_tenant_allowed_sources(None)
+        bind_tenant_for_thread(thread_id, None)
+
+
+def _graph_interrupted(thread_id: str) -> bool:
+    if not is_rag_ready():
+        return False
+    rag = get_rag_system()
+    cfg = rag.get_config(thread_id=thread_id)
+    state = rag.agent_graph.get_state(cfg)
+    return bool(state.next)
 
 
 def list_sessions(db: Session, user: User) -> ChatSessionListResponse:
@@ -311,55 +314,75 @@ def get_session_detail(db: Session, user: User, session_id: UUID) -> ChatSession
 
 
 def chat_sync(
-    db: Session,
-    user: User,
+    user_id: UUID,
     message: str,
     session_id: UUID | None,
 ) -> ChatResponse:
-    session = get_or_create_session(db, user, session_id)
-    _persist_user_message(db, session, message)
+    """Run a non-streaming chat in the caller's thread (use via run_in_threadpool)."""
+    from backend.database.session import get_session_factory
 
-    last_messages: list[ChatMessage] = []
-    interrupted = False
+    db = get_session_factory()()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise ValueError("User not found")
 
-    for batch in _run_chat_stream(message, session.thread_id, db, user):
-        last_messages = batch
-        for m in batch:
-            if m.metadata and m.metadata.get("node") == "clarification":
-                interrupted = True
+        session = get_or_create_session(db, user, session_id)
+        _persist_user_message(db, session, message)
 
-    sources = extract_sources(last_messages, db, user.tenant_id)
-    _persist_assistant_turn(db, session, last_messages, sources)
+        last_messages: list[ChatMessage] = []
+        interrupted = False
 
-    if not is_rag_ready():
-        status = "error"
-    elif interrupted:
-        status = "interrupted"
-    else:
-        status = "completed"
+        for batch in _run_chat_stream(message, session.thread_id, db, user):
+            last_messages = batch
+            for m in batch:
+                if m.metadata and m.metadata.get("node") == "clarification":
+                    interrupted = True
 
-    public_messages = filter_public_messages(last_messages)
-    for m in public_messages:
-        if m.role == "assistant" and not m.metadata:
-            m.sources = sources if m.content == _main_assistant_text(last_messages) else m.sources
+        sources = extract_sources(last_messages, db, user.tenant_id)
+        _persist_assistant_turn(db, session, last_messages, sources)
 
-    return ChatResponse(
-        session_id=session.id,
-        thread_id=session.thread_id,
-        status=status,
-        interrupted=interrupted,
-        messages=public_messages,
-        sources=sources,
-    )
+        if not is_rag_ready():
+            status = "error"
+        elif interrupted:
+            status = "interrupted"
+        else:
+            status = "completed"
+
+        public_messages = filter_public_messages(last_messages)
+        for m in public_messages:
+            if m.role == "assistant" and not m.metadata:
+                m.sources = sources if m.content == _main_assistant_text(last_messages) else m.sources
+
+        return ChatResponse(
+            session_id=session.id,
+            thread_id=session.thread_id,
+            status=status,
+            interrupted=interrupted,
+            messages=public_messages,
+            sources=sources,
+        )
+    finally:
+        db.close()
 
 
-async def chat_stream_sse(
-    db: Session,
-    user: User,
+def chat_stream_sse(
+    user_id: UUID,
     message: str,
     session_id: UUID | None,
-) -> AsyncGenerator[str, None]:
+) -> Generator[str, None, None]:
+    """Sync SSE generator — Starlette runs this in a threadpool so chats parallelize.
+
+    Opens its own DB session so it is safe under concurrent threadpool execution.
+    """
+    from backend.database.session import get_session_factory
+
+    db = get_session_factory()()
     try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise ValueError("User not found")
+
         session = get_or_create_session(db, user, session_id)
         _persist_user_message(db, session, message)
 
@@ -382,11 +405,7 @@ async def chat_stream_sse(
         sources = extract_sources(filter_public_messages(last_messages), db, user.tenant_id)
         _persist_assistant_turn(db, session, last_messages, sources)
 
-        rag = get_rag_system()
-        with get_rag_lock():
-            cfg = rag.get_config()
-            state = rag.agent_graph.get_state(cfg)
-            interrupted = bool(state.next)
+        interrupted = _graph_interrupted(session.thread_id)
 
         done = {
             "status": "interrupted" if interrupted else "completed",
@@ -397,3 +416,5 @@ async def chat_stream_sse(
     except Exception as exc:
         payload = {"detail": str(exc)}
         yield f"event: error\ndata: {json.dumps(payload)}\n\n"
+    finally:
+        db.close()

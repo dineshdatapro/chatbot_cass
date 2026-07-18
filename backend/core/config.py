@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     ollama_model: str = ""
     ollama_temperature: float = 0.7
 
+    # Concurrent chat threads (Starlette/anyio default threadpool is ~40).
+    # Keep uvicorn workers at 1: LangGraph uses in-memory checkpoints per process.
+    chat_thread_limit: int = 40
+
     @property
     def embed_api_base_url(self) -> str:
         return self.public_api_url.rstrip("/") if self.public_api_url else ""

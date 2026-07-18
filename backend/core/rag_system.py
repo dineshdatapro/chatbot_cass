@@ -55,16 +55,24 @@ class RAGSystem:
         tools = ToolFactory(collection).create_tools()
         self.agent_graph = create_agent_graph(llm, tools)
 
-    def get_config(self):
-        cfg = {"configurable": {"thread_id": self.thread_id}, "recursion_limit": self.recursion_limit}
+    def get_config(self, thread_id: str | None = None):
+        """Build LangGraph config for a specific conversation thread.
+
+        Pass thread_id explicitly so concurrent chats never share mutable
+        state on this singleton. Falls back to self.thread_id for local/dev use.
+        """
+        tid = thread_id or self.thread_id
+        cfg = {"configurable": {"thread_id": tid}, "recursion_limit": self.recursion_limit}
         handler = self.observability.get_handler()
         if handler:
             cfg["callbacks"] = [handler]
         return cfg
 
-    def reset_thread(self):
+    def reset_thread(self, thread_id: str | None = None):
+        tid = thread_id or self.thread_id
         try:
-            self.agent_graph.checkpointer.delete_thread(self.thread_id)
+            self.agent_graph.checkpointer.delete_thread(tid)
         except Exception as e:
-            print(f"Warning: Could not delete thread {self.thread_id}: {e}")
-        self.thread_id = str(uuid.uuid4())
+            print(f"Warning: Could not delete thread {tid}: {e}")
+        if thread_id is None or thread_id == self.thread_id:
+            self.thread_id = str(uuid.uuid4())

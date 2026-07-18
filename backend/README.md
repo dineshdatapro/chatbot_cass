@@ -55,6 +55,19 @@ curl -X POST http://localhost:8000/api/v1/chat \
 
 SSE streaming: set `"stream": true` in the body.
 
+## Concurrency
+
+Chat requests run in parallel (threadpool). Each conversation uses its own LangGraph
+`thread_id` — there is no global chat lock.
+
+Run a **single** uvicorn worker (default). The agent checkpointer is in-memory per
+process; multiple workers would split conversation state. Scale concurrency via
+`CHAT_THREAD_LIMIT` in `backend/.env` (default 40), not via extra workers.
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
 ## Project layout
 
 ```

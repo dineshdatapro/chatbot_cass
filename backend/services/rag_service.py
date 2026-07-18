@@ -55,5 +55,5 @@ def is_rag_ready() -> bool:
 
 
 def get_rag_lock() -> threading.Lock:
-    """Serialize access to the shared RAGSystem thread_id (process-wide singleton)."""
+    """Lock for RAG init and document indexing only — not for concurrent chat."""
     return _lock

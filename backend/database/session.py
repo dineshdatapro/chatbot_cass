@@ -14,10 +14,15 @@ def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
-        _engine = create_engine(
-            settings.database_url,
-            pool_pre_ping=True,
-        )
+        kwargs: dict = {"pool_pre_ping": True}
+        if settings.database_url.startswith("sqlite"):
+            # Allow the same connection to be used from chat threadpool workers.
+            kwargs["connect_args"] = {"check_same_thread": False}
+        else:
+            # Concurrent embed chats each open a short-lived session.
+            kwargs["pool_size"] = 20
+            kwargs["max_overflow"] = 40
+        _engine = create_engine(settings.database_url, **kwargs)
     return _engine
 
 

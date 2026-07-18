@@ -1,5 +1,12 @@
-"""Per-request tenant scope for retrieval (shared RAG singleton, tenant-aware tools)."""
+"""Per-request tenant scope for retrieval (shared RAG singleton, tenant-aware tools).
 
+Allowed sources are stored both in a ContextVar (same-thread) and in a dict keyed by
+LangGraph thread_id so concurrent chats remain isolated when work hops threads.
+"""
+
+from __future__ import annotations
+
+import threading
 from contextvars import ContextVar
 from pathlib import Path
 from uuid import UUID
@@ -12,12 +19,38 @@ from backend.models.document import Document
 # Non-empty set = only those source names may be returned.
 _allowed_sources: ContextVar[set[str] | None] = ContextVar("allowed_sources", default=None)
 
+# Concurrent chats: map LangGraph thread_id → allow-list
+_thread_sources: dict[str, set[str]] = {}
+_thread_sources_lock = threading.Lock()
+
 
 def set_tenant_allowed_sources(sources: set[str] | None) -> None:
     _allowed_sources.set(sources)
 
 
+def bind_tenant_for_thread(thread_id: str, sources: set[str] | None) -> None:
+    """Bind (or clear) the allow-list for a LangGraph conversation thread."""
+    with _thread_sources_lock:
+        if sources is None:
+            _thread_sources.pop(thread_id, None)
+        else:
+            _thread_sources[thread_id] = sources
+    set_tenant_allowed_sources(sources)
+
+
 def get_tenant_allowed_sources() -> set[str] | None:
+    """Resolve the current tenant allow-list (thread_id map, then ContextVar)."""
+    try:
+        from langgraph.config import get_config
+
+        cfg = get_config() or {}
+        tid = (cfg.get("configurable") or {}).get("thread_id")
+        if tid:
+            with _thread_sources_lock:
+                if tid in _thread_sources:
+                    return _thread_sources[tid]
+    except Exception:
+        pass
     return _allowed_sources.get()
 
 

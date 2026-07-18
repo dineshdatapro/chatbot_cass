@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    # Allow many concurrent chat streams (each runs in the anyio threadpool).
+    try:
+        import anyio
+
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        limiter.total_tokens = max(8, settings.chat_thread_limit)
+        logger.info("Chat threadpool size set to %s", limiter.total_tokens)
+    except Exception:
+        logger.exception("Could not configure chat threadpool size")
+
     logger.info("Initializing database...")
     try:
         init_db()

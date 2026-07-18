@@ -93,13 +93,17 @@ class ChatInterface:
             response_messages.append(make_message(""))
         response_messages[-1]["content"] += chunk.content
 
-    def chat(self, message, history):
-        """Generator that streams Gradio chat message dicts."""
+    def chat(self, message, history, thread_id=None):
+        """Generator that streams Gradio chat message dicts.
+
+        thread_id must be passed for concurrent production chats so each
+        session uses its own LangGraph checkpoint thread.
+        """
         if not self.rag_system.agent_graph:
             yield "⚠️ System not initialized!"
             return
 
-        config        = self.rag_system.get_config()
+        config = self.rag_system.get_config(thread_id=thread_id)
         current_state = self.rag_system.agent_graph.get_state(config)
 
         try:
@@ -133,6 +137,6 @@ class ChatInterface:
         except Exception as e:
             yield f"❌ Error: {str(e)}"
 
-    def clear_session(self):
-        self.rag_system.reset_thread()
+    def clear_session(self, thread_id=None):
+        self.rag_system.reset_thread(thread_id=thread_id)
         self.rag_system.observability.flush()
